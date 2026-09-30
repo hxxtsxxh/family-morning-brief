@@ -1,7 +1,7 @@
 name: WhatsApp setup
 
 # Manual-only helper for the WhatsApp side:
-#   login        show a QR code in this job's log → scan it with WhatsApp → lists your groups
+#   login        publishes a scannable QR image (link in the log) → scan it with WhatsApp → lists your groups
 #   list-groups  list the groups the linked account is in (name + JID)
 #   status       check the linked session is healthy
 #   logout       unlink this device and delete the saved session
@@ -44,17 +44,22 @@ jobs:
       - name: Set up OpenClaw
         run: scripts/ci/openclaw-setup.sh
 
-      - name: "📱 Scan this QR: WhatsApp → Settings → Linked devices → Link a device"
+      - name: "📱 Open the QR link printed below, then scan it with WhatsApp"
         if: inputs.action == 'login'
         run: |
-          echo "Open WhatsApp on your phone → Settings (or ⋮) → Linked devices → Link a device, then scan the QR below."
-          echo "The QR refreshes every ~20 seconds; this step waits up to 4 minutes."
-          # `script` gives the CLI a pseudo-terminal so it renders the QR as text.
-          timeout 240 script -qfec "openclaw channels login --channel whatsapp --verbose" /dev/null || true
+          # The login command needs a pseudo-terminal (`script`) to print its QR. Its output goes
+          # to a file; qr-publish.mjs converts each QR to a square PNG on the temporary `qr` branch
+          # (text QRs in the Actions log get stretched and won't scan).
+          nohup script -qfec "openclaw channels login --channel whatsapp --verbose" /dev/null > "$RUNNER_TEMP/login.log" 2>&1 &
+          LOGIN_PID=$!
+          node scripts/ci/qr-publish.mjs "$RUNNER_TEMP/login.log" "$LOGIN_PID" 300 || true
+          sleep 5
+          kill "$LOGIN_PID" 2>/dev/null || true
           if ls "$HOME"/.openclaw/credentials/whatsapp/*/creds.json >/dev/null 2>&1; then
             echo "✅ WhatsApp linked."
           else
-            echo "::error::No QR was scanned within 4 minutes. Re-run this workflow and scan the newest QR in the log."
+            echo "::error::WhatsApp was not linked within 5 minutes. Re-run this workflow and scan the newest QR."
+            echo "--- login output (last lines) ---"; grep -v -E '^[^a-zA-Z]*[▀▄█]' "$RUNNER_TEMP/login.log" | tail -n 30 || true
             exit 1
           fi
 

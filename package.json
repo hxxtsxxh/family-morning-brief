@@ -18,5 +18,9 @@
   "dependencies": {
     "fast-xml-parser": "^5.11.2",
     "yaml": "^2.9.1"
+  },
+  "devDependencies": {
+    "jsqr": "^1.4.0",
+    "qrcode": "^1.5.4"
   }
 }
