@@ -14,11 +14,16 @@ case "${1:-}" in
     # Wait until the WhatsApp account is linked and connected (max ~3 min).
     for i in $(seq 1 36); do
       out="$(openclaw channels status --channel whatsapp --probe --json 2>/dev/null || true)"
-      if echo "$out" | node -e '
+      # Verified shape (OpenClaw 2026.9.7): .channels.whatsapp.{linked,connected,statusState}
+      state="$(echo "$out" | node -e '
         let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{
-          try{const j=JSON.parse(s);const txt=JSON.stringify(j);
-            const ok=/"connected"\s*:\s*true/.test(txt)||/"status"\s*:\s*"(connected|open|ready)"/.test(txt);
-            process.exit(ok?0:1)}catch{process.exit(1)}})'; then
+          try{const w=JSON.parse(s).channels?.whatsapp??{};
+            console.log(`${w.linked===true}:${w.connected===true}:${w.statusState??"unknown"}`)}catch{console.log("false:false:starting")}})')"
+      [ $((i % 6)) -eq 1 ] && echo "waiting for WhatsApp… (linked:connected:state = $state)"
+      case "$state" in
+        false:*:not-linked) echo "::error::WhatsApp session is not linked — run the 'WhatsApp setup' workflow (action: login)."; exit 1 ;;
+      esac
+      if [ "${state%%:*}" = "true" ] && [ "$(echo "$state" | cut -d: -f2)" = "true" ]; then
         echo "WhatsApp connected after ~$((i*5))s"
         exit 0
       fi
