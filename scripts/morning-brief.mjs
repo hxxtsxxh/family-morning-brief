@@ -18,7 +18,7 @@ import { localDateKey } from "../src/time.mjs";
 import { loadHistory, saveHistory, recordRun, alreadyDelivered } from "../src/history.mjs";
 import { scheduleDecision } from "../src/schedule.mjs";
 import { generateBrief, BriefFailure } from "../src/pipeline.mjs";
-import { sendToFamilyGroup, assertSendableTarget } from "../src/deliver.mjs";
+import { sendToFamilyGroup, assertSendableTarget, isPreflight } from "../src/deliver.mjs";
 
 const { values: args } = parseArgs({
   options: {
@@ -80,7 +80,7 @@ async function main() {
     const stage = err instanceof BriefFailure ? err.stage : "unexpected";
     log.error(`brief generation failed at ${stage}: ${err.message}`);
     summary(`### ❌ Morning brief not sent\n\nStage: \`${stage}\`\n\n\`\`\`\n${err.message}\n\`\`\``);
-    if (willSend) persist({ status: "skipped", mode, reason: `${stage}: ${err.message.slice(0, 300)}` });
+    if (willSend && !isPreflight()) persist({ status: "skipped", mode, reason: `${stage}: ${err.message.slice(0, 300)}` });
     return 1;
   }
 
@@ -98,6 +98,17 @@ async function main() {
   if (errors.length) log.warn(`preview has validation warnings:\n  - ${errors.join("\n  - ")}`);
   if (!willSend) {
     log.info(`dry run: nothing sent. Saved to out/brief-${today}.txt`);
+    return 0;
+  }
+
+  if (isPreflight()) {
+    const res = await sendToFamilyGroup(rendered.text, config).catch((err) => {
+      log.error(`preflight FAILED: ${err.message}`);
+      return null;
+    });
+    if (!res) return 1;
+    log.info(`preflight OK: OpenClaw accepted the WhatsApp payload for ${res?.payload?.to ?? config.groupId} (dryRun=${res?.dryRun}). Nothing was delivered or recorded.`);
+    summary("\n🧪 Preflight OK — OpenClaw accepted the payload; nothing was delivered.");
     return 0;
   }
 

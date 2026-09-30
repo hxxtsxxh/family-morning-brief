@@ -11,9 +11,9 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "dry-run = generate and show only (nothing sent) · send = post ONE brief to the family group now"
+        description: "dry-run = generate and show only · preflight = full send path incl. WhatsApp, but OpenClaw delivers nothing · send = post ONE brief to the family group now"
         type: choice
-        options: [dry-run, send]
+        options: [dry-run, preflight, send]
         default: dry-run
       force:
         description: "Send even if today's brief already went out"
@@ -68,6 +68,11 @@ jobs:
             echo "run=${{ steps.gate.outputs.go }}" >> "$GITHUB_OUTPUT"
             echo "send=true" >> "$GITHUB_OUTPUT"
             echo "flags=--scheduled" >> "$GITHUB_OUTPUT"
+          elif [ "${{ inputs.mode }}" = "preflight" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            echo "send=true" >> "$GITHUB_OUTPUT"
+            echo "flags=--send --force" >> "$GITHUB_OUTPUT"
+            echo "OPENCLAW_SEND_DRY_RUN=true" >> "$GITHUB_ENV"
           elif [ "${{ inputs.mode }}" = "send" ]; then
             echo "run=true" >> "$GITHUB_OUTPUT"
             echo "send=true" >> "$GITHUB_OUTPUT"

@@ -15,6 +15,7 @@ export async function sendToFamilyGroup(text, config, { execFileImpl = execFile,
   assertSendableTarget(config.groupId);
   if (!text?.trim()) throw new DeliveryError("refusing to send an empty message");
   const args = ["message", "send", "--channel", "whatsapp", "--target", config.groupId, "--message", text, "--json"];
+  if (isPreflight()) args.push("--dry-run"); // OpenClaw validates + prints the payload, delivers nothing
   return new Promise((resolve, reject) => {
     execFileImpl(bin, args, { timeout: timeoutMs, maxBuffer: 4 * 1024 * 1024 }, (err, stdout, stderr) => {
       const out = String(stdout ?? "").trim();
@@ -31,4 +32,9 @@ export async function sendToFamilyGroup(text, config, { execFileImpl = execFile,
       resolve(json ?? { raw: out });
     });
   });
+}
+
+/** OPENCLAW_SEND_DRY_RUN=true → exercise the full send path but let OpenClaw skip delivery. */
+export function isPreflight(env = process.env) {
+  return /^(1|true|yes|on)$/i.test(String(env.OPENCLAW_SEND_DRY_RUN ?? "").trim());
 }

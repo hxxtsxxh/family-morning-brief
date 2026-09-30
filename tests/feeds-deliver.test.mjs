@@ -115,3 +115,19 @@ test("delivery surfaces OpenClaw failures (e.g. WhatsApp disconnected)", async (
   };
   await assert.rejects(() => sendToFamilyGroup("hi", testConfig(), { execFileImpl: fakeExec }), /No active WhatsApp listener/);
 });
+
+test("preflight mode passes --dry-run to OpenClaw so nothing is delivered", async () => {
+  let seen;
+  const fakeExec = (bin, args, opts, cb) => {
+    seen = args;
+    cb(null, JSON.stringify({ action: "send", dryRun: true, payload: { to: "120363012345678901@g.us" } }), "");
+  };
+  process.env.OPENCLAW_SEND_DRY_RUN = "true";
+  try {
+    const res = await sendToFamilyGroup("hi", testConfig(), { execFileImpl: fakeExec });
+    assert.equal(res.dryRun, true);
+    assert.equal(seen.at(-1), "--dry-run");
+  } finally {
+    delete process.env.OPENCLAW_SEND_DRY_RUN;
+  }
+});
