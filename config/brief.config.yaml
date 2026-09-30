@@ -1,0 +1,172 @@
+# ☀️ Morning Chai — Family Morning Brief
+#
+# This is the ONE file to edit for schedule, length, interests and sources.
+# After editing, run `npm test` (it validates this file) and push.
+
+title: "☀️ *Morning Chai*"
+sign_off: "Have a great day ❤️"
+
+# ── Schedule ────────────────────────────────────────────────────────────────
+timezone: America/Los_Angeles
+send_time: "07:30" # local time in `timezone`.
+# If you change send_time, run `npm run schedule:cron` and paste the printed
+# cron lines into .github/workflows/morning-brief.yml (npm test checks they match).
+
+# ── Delivery ────────────────────────────────────────────────────────────────
+whatsapp:
+  # The family group's JID (looks like 120363...@g.us). It is read from this
+  # environment variable (a GitHub repository variable in production). The
+  # brief is only ever sent to this one group.
+  group_id_env: FAMILY_WHATSAPP_GROUP_ID
+
+# ── Length ──────────────────────────────────────────────────────────────────
+length:
+  min_stories: 3 # fewer than this = no briefing today (better than filler)
+  max_stories: 8
+  max_words: 600 # counted on the message text, excluding the link list
+  max_chars: 6000 # one WhatsApp message (OpenClaw's chunk limit is raised to 8000 in CI setup)
+  max_summary_words: 45
+  max_headline_chars: 90
+
+links: bottom # "bottom" = numbered link list at the end, "inline" = link under each story
+
+freshness:
+  window_hours: 26 # stories older than this are dropped before ranking
+  # Older items can still appear if they were meaningfully updated (feeds that
+  # report an <updated> time are judged by that time).
+
+# ── Sections (in display order) ─────────────────────────────────────────────
+# `max` caps stories per section. Sections with nothing worthwhile are omitted.
+categories:
+  - id: world
+    emoji: "🌎"
+    label: Top Stories
+    max: 3
+  - id: india
+    emoji: "🇮🇳"
+    label: India
+    max: 2
+  - id: us
+    emoji: "🇺🇸"
+    label: United States
+    max: 2
+  - id: tech_business
+    emoji: "💻"
+    label: Tech & Business
+    max: 2
+  - id: sports
+    emoji: "🏏"
+    label: Sports
+    max: 1
+  - id: interesting
+    emoji: "✨"
+    label: Something Interesting
+    max: 1
+
+# ── Audience & interests ────────────────────────────────────────────────────
+audience: >-
+  An Indian (Gujarati) family living partly in the United States (California /
+  Bay Area and Atlanta, Georgia) and partly in India. Adults of all ages who want
+  a calm, trustworthy two-minute overview of what matters today.
+
+# Plain-language interests handed to the editor model. Edit freely.
+interests:
+  - India and Gujarat (government, economy, infrastructure, weather disasters)
+  - United States national developments that affect many people
+  - California / Bay Area and Atlanta / Georgia — only when genuinely significant
+  - India–US relations, visas/immigration (H-1B, green cards), travel between India and the US
+  - Technology and major business/markets developments
+  - Cricket (India matches, major tournaments) and major international sport
+  - Science, space (ISRO, NASA), health breakthroughs
+  - Major Hindu festivals when they are in the news
+
+# Words that nudge the pre-ranking (before the model sees candidates).
+boost_keywords:
+  [India, Indian, Gujarat, Ahmedabad, Surat, Vadodara, Modi, Delhi, Mumbai,
+   H-1B, visa, green card, immigration, Air India, California, Bay Area,
+   San Francisco, Silicon Valley, Atlanta, Georgia, cricket, BCCI, ISRO, NASA,
+   Diwali, Navratri, Ganesh, Holi, Janmashtami, rupee, Sensex, Nifty]
+
+# Stories matching these are dropped before ranking (case-insensitive substrings).
+exclude_patterns:
+  [opinion, "analysis:", "letters:", podcast, quiz, crossword, wordle, horoscope,
+   "in pictures", "watch:", "listen:", "live updates", "live:", "deal of the day",
+   "best deals", gossip, "celebrity", "sponsored"]
+
+# ── Sources ─────────────────────────────────────────────────────────────────
+# weight: 3 = wire/public broadcaster, 2 = major newspaper/specialist, 1 = other.
+# category: the section this feed usually belongs to (a hint; the editor decides).
+# google_news: true feeds are Google News searches; each item's real publisher
+# must be in `trusted_publishers` or it is dropped.
+sources:
+  # World
+  - { name: BBC News, category: world, weight: 3, url: "https://feeds.bbci.co.uk/news/world/rss.xml" }
+  - { name: NPR, category: world, weight: 3, url: "https://feeds.npr.org/1004/rss.xml" }
+  - { name: The Guardian, category: world, weight: 2, url: "https://www.theguardian.com/world/rss" }
+  - { name: Al Jazeera, category: world, weight: 2, url: "https://www.aljazeera.com/xml/rss/all.xml" }
+  - { name: Reuters (via Google News), category: world, weight: 3, google_news: true, url: "https://news.google.com/rss/search?q=site:reuters.com/world+when:1d&hl=en-US&gl=US&ceid=US:en" }
+  - { name: AP (via Google News), category: world, weight: 3, google_news: true, url: "https://news.google.com/rss/search?q=site:apnews.com+when:1d&hl=en-US&gl=US&ceid=US:en" }
+  - { name: Google News Top (US), category: world, weight: 2, google_news: true, url: "https://news.google.com/rss?hl=en-US&gl=US&ceid=US:en" }
+  # United States
+  - { name: NPR, category: us, weight: 3, url: "https://feeds.npr.org/1003/rss.xml" }
+  - { name: BBC News, category: us, weight: 3, url: "https://feeds.bbci.co.uk/news/world/us_and_canada/rss.xml" }
+  - { name: California & Bay Area (via Google News), category: us, weight: 1, google_news: true, url: "https://news.google.com/rss/search?q=%22Bay+Area%22+OR+California+when:1d&hl=en-US&gl=US&ceid=US:en" }
+  - { name: Atlanta & Georgia (via Google News), category: us, weight: 1, google_news: true, url: "https://news.google.com/rss/search?q=Atlanta+OR+%22Georgia+governor%22+when:1d&hl=en-US&gl=US&ceid=US:en" }
+  # India
+  - { name: The Hindu, category: india, weight: 2, url: "https://www.thehindu.com/news/national/feeder/default.rss" }
+  - { name: The Indian Express, category: india, weight: 2, url: "https://indianexpress.com/section/india/feed/" }
+  - { name: BBC News, category: india, weight: 3, url: "https://feeds.bbci.co.uk/news/world/asia/india/rss.xml" }
+  - { name: Reuters India (via Google News), category: india, weight: 3, google_news: true, url: "https://news.google.com/rss/search?q=site:reuters.com+India+when:1d&hl=en-IN&gl=IN&ceid=IN:en" }
+  - { name: Google News Top (India), category: india, weight: 2, google_news: true, url: "https://news.google.com/rss?hl=en-IN&gl=IN&ceid=IN:en" }
+  - { name: Gujarat (via Google News), category: india, weight: 1, google_news: true, url: "https://news.google.com/rss/search?q=Gujarat+when:1d&hl=en-IN&gl=IN&ceid=IN:en" }
+  - { name: India–US (via Google News), category: india, weight: 1, google_news: true, url: "https://news.google.com/rss/search?q=%22India+US%22+OR+H-1B+OR+%22US+visa%22+India+when:2d&hl=en-US&gl=US&ceid=US:en" }
+  # Tech & business
+  - { name: Ars Technica, category: tech_business, weight: 2, url: "https://feeds.arstechnica.com/arstechnica/index" }
+  - { name: The Verge, category: tech_business, weight: 2, url: "https://www.theverge.com/rss/index.xml" }
+  - { name: TechCrunch, category: tech_business, weight: 2, url: "https://techcrunch.com/feed/" }
+  - { name: BBC News, category: tech_business, weight: 3, url: "https://feeds.bbci.co.uk/news/business/rss.xml" }
+  - { name: BBC News, category: tech_business, weight: 3, url: "https://feeds.bbci.co.uk/news/technology/rss.xml" }
+  - { name: Reuters Business (via Google News), category: tech_business, weight: 3, google_news: true, url: "https://news.google.com/rss/search?q=site:reuters.com/business+when:1d&hl=en-US&gl=US&ceid=US:en" }
+  - { name: The Hindu, category: tech_business, weight: 2, url: "https://www.thehindu.com/business/feeder/default.rss" }
+  # Sports
+  - { name: ESPNcricinfo, category: sports, weight: 3, url: "https://www.espncricinfo.com/rss/content/story/feeds/0.xml" }
+  - { name: BBC Sport, category: sports, weight: 3, url: "https://feeds.bbci.co.uk/sport/cricket/rss.xml" }
+  - { name: BBC Sport, category: sports, weight: 3, url: "https://feeds.bbci.co.uk/sport/rss.xml" }
+  - { name: ESPN, category: sports, weight: 2, url: "https://www.espn.com/espn/rss/news" }
+  # Science / interesting
+  - { name: NPR, category: interesting, weight: 3, url: "https://feeds.npr.org/1007/rss.xml" }
+  - { name: BBC News, category: interesting, weight: 3, url: "https://feeds.bbci.co.uk/news/science_and_environment/rss.xml" }
+  - { name: NASA, category: interesting, weight: 3, url: "https://www.nasa.gov/news-release/feed/" }
+
+# Publishers accepted from Google News feeds (matched case-insensitively
+# against the item's <source> name). Anything else is dropped.
+trusted_publishers:
+  [Reuters, Associated Press, AP News, BBC, NPR, PBS, The Guardian, Al Jazeera,
+   The New York Times, The Washington Post, The Wall Street Journal, Bloomberg,
+   Financial Times, CNBC, CNN, ABC News, CBS News, NBC News, Los Angeles Times,
+   San Francisco Chronicle, KQED, The Mercury News, Atlanta Journal-Constitution,
+   AJC, The Hindu, The Indian Express, Hindustan Times, Mint, Livemint,
+   The Economic Times, NDTV, India Today, Business Standard, Deccan Herald,
+   Scroll.in, ESPN, ESPNcricinfo, Cricbuzz, Ars Technica, The Verge, TechCrunch,
+   Wired, Nature, Science, Scientific American, NASA, Space.com]
+
+# ── Editor model (all free tiers; tried in order, skipped if the key is unset) ─
+llm:
+  providers:
+    - name: gemini
+      base_url: https://generativelanguage.googleapis.com/v1beta/openai
+      api_key_env: GEMINI_API_KEY
+      models: [gemini-flash-latest, gemini-3.5-flash, gemini-flash-lite-latest]
+    - name: groq
+      base_url: https://api.groq.com/openai/v1
+      api_key_env: GROQ_API_KEY
+      models: [llama-3.3-70b-versatile]
+  temperature: 0.2
+  timeout_seconds: 120
+  max_candidates: 90 # story clusters shown to the model
+
+# ── History (avoids repeating yesterday's stories) ──────────────────────────
+history:
+  file: state/history.json
+  avoid_repeat_days: 2
+  keep_days: 21

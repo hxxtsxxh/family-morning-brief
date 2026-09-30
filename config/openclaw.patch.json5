@@ -1,0 +1,19 @@
+// OpenClaw config applied on the GitHub Actions runner (scripts/ci/openclaw-setup.sh).
+// OpenClaw is used purely as a WhatsApp *broadcaster*: every inbound path is disabled,
+// so it never reads or replies to family messages. Outbound sends are still allowed to
+// explicit group JIDs, and scripts/morning-brief.mjs only ever targets the configured group.
+{
+  gateway: { mode: "local" },
+  channels: {
+    whatsapp: {
+      enabled: true,
+      dmPolicy: "disabled", // ignore all direct messages
+      groupPolicy: "disabled", // ignore all group messages (no auto-replies)
+      selfChatMode: false,
+      sendReadReceipts: false, // don't mark family messages as read
+      reactionLevel: "off",
+      configWrites: false,
+      textChunkLimit: 8000, // keep the brief as ONE message (WhatsApp allows far more)
+    },
+  },
+}

@@ -1,0 +1,121 @@
+name: Family Morning Brief
+
+on:
+  schedule:
+    # 07:30 America/Los_Angeles. GitHub cron is UTC-only, so there is one line per DST
+    # offset, each firing ~15 min early; the in-code gate lets exactly one run send per day.
+    # If you change send_time in config/brief.config.yaml, run `npm run schedule:cron`
+    # and paste the printed lines here (npm test fails if they don't match).
+    - cron: "15 14 * * *"
+    - cron: "15 15 * * *"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "dry-run = generate and show only (nothing sent) · send = post ONE brief to the family group now"
+        type: choice
+        options: [dry-run, send]
+        default: dry-run
+      force:
+        description: "Send even if today's brief already went out"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write # saves the encrypted WhatsApp session + history to the `state` branch
+
+concurrency:
+  group: whatsapp-session # never two jobs touching the WhatsApp session at once
+  cancel-in-progress: false
+
+env:
+  OPENCLAW_VERSION: "2026.9.7"
+
+jobs:
+  brief:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      FAMILY_WHATSAPP_GROUP_ID: ${{ vars.FAMILY_WHATSAPP_GROUP_ID }}
+      MORNING_BRIEF_ENABLED: ${{ vars.MORNING_BRIEF_ENABLED }}
+      MORNING_BRIEF_DRY_RUN: ${{ vars.MORNING_BRIEF_DRY_RUN }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+      STATE_PASSPHRASE: ${{ secrets.STATE_PASSPHRASE }}
+      GITHUB_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci --no-audit --no-fund
+
+      - name: Restore state (history + WhatsApp session)
+        id: state
+        run: scripts/ci/state.sh restore
+
+      - name: Schedule gate
+        id: gate
+        if: github.event_name == 'schedule'
+        run: node scripts/morning-brief.mjs --check-schedule
+
+      - name: Plan
+        id: plan
+        run: |
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            echo "run=${{ steps.gate.outputs.go }}" >> "$GITHUB_OUTPUT"
+            echo "send=true" >> "$GITHUB_OUTPUT"
+            echo "flags=--scheduled" >> "$GITHUB_OUTPUT"
+          elif [ "${{ inputs.mode }}" = "send" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            echo "send=true" >> "$GITHUB_OUTPUT"
+            echo "flags=--send ${{ inputs.force && '--force' || '' }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            echo "send=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Dry run (nothing is sent)
+        if: steps.plan.outputs.run == 'true' && steps.plan.outputs.send != 'true'
+        run: node scripts/morning-brief.mjs --dry-run
+
+      - name: Check WhatsApp is linked
+        if: steps.plan.outputs.run == 'true' && steps.plan.outputs.send == 'true'
+        run: |
+          if [ "${{ steps.state.outputs.linked }}" != "true" ]; then
+            echo "::error::WhatsApp is not linked. Run the 'WhatsApp setup' workflow with action=login first."
+            exit 1
+          fi
+
+      - name: Set up OpenClaw
+        if: steps.plan.outputs.run == 'true' && steps.plan.outputs.send == 'true'
+        run: scripts/ci/openclaw-setup.sh
+
+      - name: Start OpenClaw gateway and wait for WhatsApp
+        if: steps.plan.outputs.run == 'true' && steps.plan.outputs.send == 'true'
+        run: |
+          scripts/ci/gateway.sh start
+          scripts/ci/gateway.sh wait-whatsapp
+
+      - name: Generate and send the brief
+        if: steps.plan.outputs.run == 'true' && steps.plan.outputs.send == 'true'
+        run: node scripts/morning-brief.mjs ${{ steps.plan.outputs.flags }}
+
+      - name: Stop gateway
+        if: always() && steps.plan.outputs.run == 'true' && steps.plan.outputs.send == 'true'
+        run: scripts/ci/gateway.sh stop
+
+      - name: Save state
+        if: always() && steps.state.outcome == 'success' && steps.plan.outputs.run == 'true' && steps.plan.outputs.send == 'true'
+        run: scripts/ci/state.sh save
+
+      - name: Keep the generated brief
+        if: always() && steps.plan.outputs.run == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: brief-${{ github.run_id }}
+          path: out/
+          retention-days: 14
+          if-no-files-found: ignore

@@ -1,0 +1,22 @@
+{
+  "name": "family-morning-brief",
+  "version": "1.0.0",
+  "private": true,
+  "description": "☀️ Morning Chai — a concise daily news briefing for a family WhatsApp group, delivered via OpenClaw.",
+  "type": "module",
+  "engines": {
+    "node": ">=24.16.0"
+  },
+  "scripts": {
+    "brief:dry-run": "node scripts/morning-brief.mjs --dry-run",
+    "brief:preview": "node scripts/morning-brief.mjs --dry-run --no-llm",
+    "brief:send": "node scripts/morning-brief.mjs --send",
+    "schedule:cron": "node scripts/schedule-cron.mjs",
+    "test": "node --test \"tests/*.test.mjs\"",
+    "lint": "node scripts/lint.mjs"
+  },
+  "dependencies": {
+    "fast-xml-parser": "^5.11.2",
+    "yaml": "^2.9.1"
+  }
+}

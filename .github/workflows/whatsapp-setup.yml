@@ -1,0 +1,84 @@
+name: WhatsApp setup
+
+# Manual-only helper for the WhatsApp side:
+#   login        show a QR code in this job's log → scan it with WhatsApp → lists your groups
+#   list-groups  list the groups the linked account is in (name + JID)
+#   status       check the linked session is healthy
+#   logout       unlink this device and delete the saved session
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        type: choice
+        options: [login, list-groups, status, logout]
+        default: login
+
+permissions:
+  contents: write # saves the encrypted session to the `state` branch
+
+concurrency:
+  group: whatsapp-session
+  cancel-in-progress: false
+
+env:
+  OPENCLAW_VERSION: "2026.9.7"
+
+jobs:
+  whatsapp:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      STATE_PASSPHRASE: ${{ secrets.STATE_PASSPHRASE }}
+      GITHUB_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - name: Restore state
+        id: state
+        run: scripts/ci/state.sh restore
+
+      - name: Set up OpenClaw
+        run: scripts/ci/openclaw-setup.sh
+
+      - name: "📱 Scan this QR: WhatsApp → Settings → Linked devices → Link a device"
+        if: inputs.action == 'login'
+        run: |
+          echo "Open WhatsApp on your phone → Settings (or ⋮) → Linked devices → Link a device, then scan the QR below."
+          echo "The QR refreshes every ~20 seconds; this step waits up to 4 minutes."
+          # `script` gives the CLI a pseudo-terminal so it renders the QR as text.
+          timeout 240 script -qfec "openclaw channels login --channel whatsapp --verbose" /dev/null
+
+      - name: Start OpenClaw gateway and wait for WhatsApp
+        if: inputs.action != 'logout'
+        run: |
+          scripts/ci/gateway.sh start
+          scripts/ci/gateway.sh wait-whatsapp
+
+      - name: List WhatsApp groups
+        if: inputs.action == 'login' || inputs.action == 'list-groups'
+        run: |
+          openclaw directory groups list --channel whatsapp --json --limit 500 > "$RUNNER_TEMP/groups.json"
+          node scripts/ci/print-groups.mjs "$RUNNER_TEMP/groups.json" | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Status
+        if: inputs.action == 'status'
+        run: openclaw channels status --channel whatsapp --probe
+
+      - name: Log out and forget the session
+        if: inputs.action == 'logout'
+        run: |
+          openclaw channels logout --channel whatsapp || true
+          rm -rf "$HOME/.openclaw/credentials/whatsapp"
+          echo "ALLOW_UNLINKED_SAVE=true" >> "$GITHUB_ENV"
+
+      - name: Stop gateway
+        if: always()
+        run: scripts/ci/gateway.sh stop
+
+      - name: Save state
+        if: always() && steps.state.outcome == 'success'
+        run: scripts/ci/state.sh save
