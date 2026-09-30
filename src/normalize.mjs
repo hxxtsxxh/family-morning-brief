@@ -85,7 +85,7 @@ export function normalizeItems(rawItems, config, nowMs = Date.now()) {
 
     const summary = r.googleNews ? "" : stripHtml(r.description).slice(0, 400);
     const haystack = `${title} ${summary}`.toLowerCase();
-    if (exclude.some((p) => haystack.includes(p)) || /\/(opinion|commentisfree|podcasts?|video|live)\//i.test(url)) { dropped.excluded++; continue; }
+    if (exclude.some((p) => haystack.includes(p)) || /\/(opinion|commentisfree|podcasts?|videos?|live|av)\//i.test(url)) { dropped.excluded++; continue; }
 
     if (seenUrls.has(url)) { dropped.duplicateUrl++; continue; }
     seenUrls.add(url);
