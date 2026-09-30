@@ -56,6 +56,8 @@ jobs:
           node scripts/ci/qr-publish.mjs "$RUNNER_TEMP/login.log" "$LOGIN_PID" 300 || true
           sleep 5
           kill "$LOGIN_PID" 2>/dev/null || true
+          pkill -f "openclaw channels login" 2>/dev/null || true # release the WhatsApp session
+          sleep 3
           if ls "$HOME"/.openclaw/credentials/whatsapp/*/creds.json >/dev/null 2>&1; then
             echo "✅ WhatsApp linked."
           else
@@ -64,17 +66,19 @@ jobs:
             exit 1
           fi
 
-      - name: Start OpenClaw gateway and wait for WhatsApp
-        if: inputs.action != 'logout'
-        run: |
-          scripts/ci/gateway.sh start
-          scripts/ci/gateway.sh wait-whatsapp
-
       - name: List WhatsApp groups
         if: inputs.action == 'login' || inputs.action == 'list-groups'
+        # Standalone lookup opens the linked session itself, so it must run BEFORE the
+        # gateway starts ("account is owned by another process" otherwise).
         run: |
           openclaw directory groups list --channel whatsapp --json --limit 500 > "$RUNNER_TEMP/groups.json"
           node scripts/ci/print-groups.mjs "$RUNNER_TEMP/groups.json" | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Start OpenClaw gateway and wait for WhatsApp
+        if: inputs.action == 'login' || inputs.action == 'status'
+        run: |
+          scripts/ci/gateway.sh start
+          scripts/ci/gateway.sh wait-whatsapp
 
       - name: Status
         if: inputs.action == 'status'
