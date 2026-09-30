@@ -50,7 +50,13 @@ jobs:
           echo "Open WhatsApp on your phone → Settings (or ⋮) → Linked devices → Link a device, then scan the QR below."
           echo "The QR refreshes every ~20 seconds; this step waits up to 4 minutes."
           # `script` gives the CLI a pseudo-terminal so it renders the QR as text.
-          timeout 240 script -qfec "openclaw channels login --channel whatsapp --verbose" /dev/null
+          timeout 240 script -qfec "openclaw channels login --channel whatsapp --verbose" /dev/null || true
+          if ls "$HOME"/.openclaw/credentials/whatsapp/*/creds.json >/dev/null 2>&1; then
+            echo "✅ WhatsApp linked."
+          else
+            echo "::error::No QR was scanned within 4 minutes. Re-run this workflow and scan the newest QR in the log."
+            exit 1
+          fi
 
       - name: Start OpenClaw gateway and wait for WhatsApp
         if: inputs.action != 'logout'

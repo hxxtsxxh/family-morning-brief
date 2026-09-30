@@ -4,6 +4,9 @@ import { isHttpsUrl } from "./config.mjs";
 import { tokens, jaccard } from "./dedupe.mjs";
 import { wordCount } from "./format.mjs";
 
+// Hype words with no neutral news use (unlike "blast", "destroys", "outrage", which can be literal).
+const LOADED = /\b(slams?|slammed|shocking|sensational|stunning|epic|bombshell|jaw-dropping|mind-blowing)\b/i;
+
 export function validateBrief(brief, rendered, config) {
   const errors = [];
   const L = config.length;
@@ -25,6 +28,8 @@ export function validateBrief(brief, rendered, config) {
     if (!s.summary) errors.push(`story ${n}: empty summary`);
     if (wordCount(s.summary) > L.max_summary_words) errors.push(`story ${n}: summary has ${wordCount(s.summary)} words; max is ${L.max_summary_words}`);
     if (sentenceCount(s.summary) > 2) errors.push(`story ${n}: summary must be 1–2 sentences`);
+    const loaded = `${s.headline} ${s.summary}`.match(LOADED);
+    if (loaded) errors.push(`story ${n}: uses the loaded word "${loaded[0]}" — use neutral wording`);
     if (!s.candidateIds.length) errors.push(`story ${n}: cites no candidate ids`);
     if (s.unknownIds.length) errors.push(`story ${n}: cites unknown candidate ids ${s.unknownIds.join(", ")} — only use ids from the list`);
     if (!s.sources.length) errors.push(`story ${n}: has no source`);

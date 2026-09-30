@@ -126,3 +126,13 @@ test("cleanText strips WhatsApp formatting characters and URLs", () => {
   assert.equal(cleanText("  _Hello_ *world* ~x~ `y` https://a.b/c  "), "Hello world x y");
   assert.equal(wordCount("☀️ *Morning Chai*\n• one two"), 4);
 });
+
+test("sensational wording is rejected so the editor rewrites it neutrally", () => {
+  const config = testConfig();
+  const brief = sampleBrief(3);
+  brief.stories[0].summary = "Gill led a sensational chase against the West Indies.";
+  brief.stories[1].headline = "Senator slams budget plan";
+  const errors = validateBrief(brief, null, config);
+  assert.ok(errors.includes('story 1: uses the loaded word "sensational" — use neutral wording'));
+  assert.ok(errors.includes('story 2: uses the loaded word "slams" — use neutral wording'));
+});
