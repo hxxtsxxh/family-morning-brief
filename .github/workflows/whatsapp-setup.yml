@@ -50,7 +50,8 @@ jobs:
           # The login command needs a pseudo-terminal (`script`) to print its QR. Its output goes
           # to a file; qr-publish.mjs converts each QR to a square PNG on the temporary `qr` branch
           # (text QRs in the Actions log get stretched and won't scan).
-          nohup script -qfec "openclaw channels login --channel whatsapp --verbose" /dev/null > "$RUNNER_TEMP/login.log" 2>&1 &
+          # `tail -f /dev/null |` keeps stdin open (background jobs otherwise get a closed stdin).
+          tail -f /dev/null | script -qfec "openclaw channels login --channel whatsapp --verbose" /dev/null > "$RUNNER_TEMP/login.log" 2>&1 &
           LOGIN_PID=$!
           node scripts/ci/qr-publish.mjs "$RUNNER_TEMP/login.log" "$LOGIN_PID" 300 || true
           sleep 5

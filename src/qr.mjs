@@ -4,12 +4,14 @@
 // phones can't scan them.
 import { deflateSync } from "node:zlib";
 
-const ANSI = /\x1b\[[0-9;?]*[A-Za-z]/g;
+// CSI sequences (colors, cursor), OSC sequences, charset selects like ESC(B, and ESC7/ESC8.
+const ANSI = /\x1b\[[0-9;?]*[ -\/]*[@-~]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1b[()][0-9A-Za-z]|\x1b[78=>]/g;
 const QR_LINE = /^[ ▀▄█]+$/;
 
 /** Returns the LAST complete QR in `text` as a boolean matrix (true = dark), or null. */
 export function extractLatestQr(text) {
-  const lines = String(text).replace(/\r/g, "\n").split("\n");
+  // Pseudo-terminal output ends lines with \r\n; a lone \r is a carriage return (redraw).
+  const lines = String(text).replace(/\r+\n/g, "\n").replace(/\r/g, "\n").split("\n");
   const blocks = [];
   let cur = [];
   for (const raw of lines) {

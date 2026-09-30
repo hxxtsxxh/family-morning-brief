@@ -45,6 +45,8 @@ console.log("The QR changes every ~20 s — when a new one is announced below, r
 
 let last = "";
 let n = 0;
+let diagnosed = false;
+const started = Date.now();
 const deadline = Date.now() + Number(timeoutArg) * 1000;
 try {
   while (Date.now() < deadline) {
@@ -68,6 +70,14 @@ try {
       git("commit", "-q", ...(n > 1 ? ["--amend"] : []), "-m", `QR #${n}`); // keep a single commit
       git("push", "-q", "--force", remote, "qr:qr");
       console.log(`🆕 ${time()} QR #${n} is ready — refresh ${url}`);
+    }
+    if (!n && !diagnosed && Date.now() - started > 45000) {
+      diagnosed = true; // help debugging if the CLI's output format ever changes
+      const lines = text.split(/\n/);
+      const qrish = lines.filter((l) => /[▀▄█]/.test(l)).slice(0, 3).map((l) => JSON.stringify(l.slice(0, 60)));
+      console.log(`⚠️ no QR recognised after 45 s. log bytes=${text.length}, lines=${lines.length}, block-char lines=${lines.filter((l) => /[▀▄█]/.test(l)).length}`);
+      console.log(`   non-QR tail: ${JSON.stringify(lines.filter((l) => !/[▀▄█]/.test(l)).slice(-8).join(" | ").slice(0, 600))}`);
+      if (qrish.length) console.log(`   first QR-like lines: ${qrish.join("  ")}`);
     }
     await new Promise((r) => setTimeout(r, 2000));
   }

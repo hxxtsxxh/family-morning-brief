@@ -31,6 +31,12 @@ test("picks the newest QR from a noisy log and ignores a half-printed one", asyn
   assert.equal(decode(extractLatestQr(log)), PAYLOAD);
 });
 
+test("handles pseudo-terminal output (\\r\\n line endings, cursor/charset escapes)", async () => {
+  const tty = (await terminalQr(PAYLOAD)).split("\n").map((l) => `\x1b[?25l${l}\x1b(B\x1b[m`).join("\r\n");
+  const log = `\x1b]0;openclaw\x07Waiting for WhatsApp connection...\r\nOpen the WhatsApp app, go to Linked Devices, then scan this QR:\r\n${tty}\r\n`;
+  assert.equal(decode(extractLatestQr(log)), PAYLOAD);
+});
+
 test("no QR in the log → null", () => {
   assert.equal(extractLatestQr("gateway starting...\nWaiting for WhatsApp connection...\n"), null);
 });
