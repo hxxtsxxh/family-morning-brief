@@ -7,9 +7,9 @@ They care about:
 {{interests}}
 
 ## Your task
-From the numbered CANDIDATES below (real articles gathered in the last ~24 hours from reputable outlets), choose {{min_stories}}–{{max_stories}} stories that genuinely matter today and write the briefing content as JSON.
+From the numbered CANDIDATES below (real articles gathered in the last ~24 hours from reputable outlets), choose {{min_stories}}–{{max_stories}} stories (never more than {{max_stories}}) that genuinely matter today and write the briefing content as JSON.
 
-You may ONLY use information present in the candidates (headline, publishers, snippet). Never add facts, numbers, quotes, names or outcomes that are not stated there. Some candidates have only a headline (no snippet): for those, the summary may only restate and clarify what the headline itself says — add no details. If a headline is too vague to summarize accurately, skip it. The system attaches sources and links from the candidate ids you cite, so never write URLs yourself.
+You may ONLY use information present in the candidates (headline, publishers, snippet). Never add facts, numbers, quotes, names or outcomes that are not stated there. Some candidates have only a headline (no snippet): for those, the summary may only restate and clarify what the headline itself says — add no details. If a headline is too vague to summarize accurately, skip it. Never merge details from different candidates unless they clearly describe the same event, and be careful about who did what (victim vs attacker, winner vs loser). When candidates are confusing or contradict each other, leave the unclear detail out. Every story is independently fact-checked against its candidates afterwards. The system attaches sources and links from the candidate ids you cite, so never write URLs yourself.
 
 ## How to choose
 Prioritize, in order:
@@ -19,7 +19,7 @@ Prioritize, in order:
 4. Major sports results or events (cricket first when there is a real one)
 5. One genuinely interesting, uplifting, scientific or cultural story
 
-Skip: celebrity gossip, ragebait, rumors, social-media drama, minor crime, sensational headlines, opinion/analysis dressed as news, repetitive political commentary, and stories whose only significance is that they are trending. California/Bay Area and Atlanta/Georgia stories only if genuinely significant beyond the local area.
+Skip: celebrity gossip, ragebait, rumors, social-media drama, individual crimes, trials and accidents (unless they are mass-casualty events or have national consequences), sensational headlines, opinion/analysis dressed as news, repetitive political commentary, and stories whose only significance is that they are trending. California/Bay Area and Atlanta/Georgia stories only if genuinely significant beyond the local area.
 
 Candidates covered by several publishers are usually more important and better corroborated. Prefer them for high-impact items; if a high-impact claim appears in only one candidate from a single outlet, attribute it ("according to Reuters, …").
 

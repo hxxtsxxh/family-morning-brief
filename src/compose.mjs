@@ -30,8 +30,8 @@ export function buildMessages(candidates, config, { recent = [], nowMs = Date.no
 
 export function candidateLine(c, nowMs) {
   const pubs = c.publishers.slice(0, 4).join(", ");
-  const snippet = c.items.map((i) => i.summary).find((s) => s && s.length > 20) ?? "";
-  const snip = snippet ? ` — ${snippet.slice(0, 220)}` : "";
+  const snippets = [...new Set(c.items.map((i) => i.summary).filter((s) => s && s.length > 20))].slice(0, 2);
+  const snip = snippets.length ? ` — ${snippets.map((s) => s.slice(0, 280)).join(" / ")}` : "";
   return `${c.id} [${c.categories[0]}] (${pubs} · ${c.coverage} outlet${c.coverage > 1 ? "s" : ""} · ${ageLabel(c.freshMs, nowMs)}) ${c.lead.title}${snip}`;
 }
 

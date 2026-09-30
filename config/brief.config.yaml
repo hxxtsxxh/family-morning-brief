@@ -114,7 +114,8 @@ sources:
   - { name: Atlanta & Georgia (via Google News), category: us, weight: 1, google_news: true, url: "https://news.google.com/rss/search?q=Atlanta+OR+%22Georgia+governor%22+when:1d&hl=en-US&gl=US&ceid=US:en" }
   # India
   - { name: The Hindu, category: india, weight: 2, url: "https://www.thehindu.com/news/national/feeder/default.rss" }
-  - { name: The Indian Express, category: india, weight: 2, url: "https://indianexpress.com/section/india/feed/" }
+  # indianexpress.com blocks GitHub's servers (HTTP 403), so it is read via Google News:
+  - { name: The Indian Express (via Google News), category: india, weight: 2, google_news: true, url: "https://news.google.com/rss/search?q=site:indianexpress.com+when:1d&hl=en-IN&gl=IN&ceid=IN:en" }
   - { name: BBC News, category: india, weight: 3, url: "https://feeds.bbci.co.uk/news/world/asia/india/rss.xml" }
   - { name: Reuters India (via Google News), category: india, weight: 3, google_news: true, url: "https://news.google.com/rss/search?q=site:reuters.com+India+when:1d&hl=en-IN&gl=IN&ceid=IN:en" }
   - { name: Google News Top (India), category: india, weight: 2, google_news: true, url: "https://news.google.com/rss?hl=en-IN&gl=IN&ceid=IN:en" }
@@ -163,6 +164,7 @@ llm:
       models: [llama-3.3-70b-versatile]
   temperature: 0.2
   timeout_seconds: 120
+  retry_delays_seconds: [10, 30] # same-model retries for "high demand"/rate-limit errors
   max_candidates: 90 # story clusters shown to the model
 
 # ── History (avoids repeating yesterday's stories) ──────────────────────────

@@ -1,4 +1,4 @@
-// fetch → normalize → dedupe → rank → edit (LLM) → render → validate (retry once)
+// fetch → normalize → dedupe → rank → edit (LLM) → render → validate + fact-check (retry once)
 import { fetchAllSources } from "./feeds.mjs";
 import { normalizeItems } from "./normalize.mjs";
 import { clusterStories } from "./dedupe.mjs";
@@ -7,6 +7,7 @@ import { buildMessages, parseModelJson, resolveBrief, heuristicBrief } from "./c
 import { chatComplete } from "./llm.mjs";
 import { renderBrief, orderStories } from "./format.mjs";
 import { validateBrief } from "./validate.mjs";
+import { factCheck } from "./factcheck.mjs";
 import { recentHeadlines, recentUrls } from "./history.mjs";
 
 export class BriefFailure extends Error {
@@ -73,12 +74,31 @@ export async function generateBrief(config, { log, history, todayKey, now = new 
     }
     if (brief) {
       brief.stories = orderStories(brief.stories, config);
-      const rendered = renderBrief(brief, config, now);
+      let rendered = renderBrief(brief, config, now);
       lastErrors = validateBrief(brief, rendered, config);
       if (!lastErrors.length) {
         log.info(`editor: attempt ${attempt} passed validation (${brief.stories.length} stories)`);
-        meta.attempts = attempt;
-        return { brief, rendered, errors: [], meta, candidates };
+        const problems = await runFactCheck(brief, candidates, config, { env, fetchImpl, log });
+        if (!problems.length) {
+          meta.attempts = attempt;
+          return { brief, rendered, errors: [], meta, candidates };
+        }
+        if (attempt === 2) {
+          // Last chance: drop whatever the checker still flags, keep the rest if it's still a real briefing.
+          const flagged = new Set(problems.map((p) => p.story - 1));
+          brief.stories = brief.stories.filter((_, i) => !flagged.has(i));
+          rendered = renderBrief(brief, config, now);
+          const errors = validateBrief(brief, rendered, config);
+          log.warn(`fact-check: dropped ${flagged.size} still-unsupported stories: ${problems.map((p) => `#${p.story} ${p.problem}`).join(" | ")}`);
+          if (!errors.length) {
+            meta.attempts = attempt;
+            meta.droppedByFactCheck = flagged.size;
+            return { brief, rendered, errors: [], meta, candidates };
+          }
+          lastErrors = [...problems.map((p) => `story ${p.story}: ${p.problem}`), ...errors];
+          break;
+        }
+        lastErrors = problems.map((p) => `story ${p.story}: ${p.problem} — rewrite it using only facts in its candidates, or drop it`);
       }
     }
     log.warn(`editor: attempt ${attempt} failed validation:\n  - ${lastErrors.join("\n  - ")}`);
@@ -87,5 +107,19 @@ export async function generateBrief(config, { log, history, todayKey, now = new 
       { role: "user", content: `Your JSON has these problems:\n- ${lastErrors.join("\n- ")}\n\nFix all of them and return the complete corrected JSON object only. Keep using only the candidate ids from the list.` },
     );
   }
-  throw new BriefFailure(`briefing failed validation twice:\n  - ${lastErrors.join("\n  - ")}`, "validation");
+  throw new BriefFailure(`briefing failed validation/fact-check twice:\n  - ${lastErrors.join("\n  - ")}`, "validation");
+}
+
+/** Fact-check problems, or [] if all supported. If no model is reachable for the check, the
+ *  structurally-valid brief is accepted with a warning (the editor already only saw real sources). */
+async function runFactCheck(brief, candidates, config, { env, fetchImpl, log }) {
+  try {
+    const problems = await factCheck(brief, candidates, config, { env, fetchImpl, log: log.info });
+    if (problems.length) log.warn(`fact-check: ${problems.length} problem(s):\n  - ${problems.map((p) => `story ${p.story}: ${p.problem}`).join("\n  - ")}`);
+    else log.info("fact-check: all stories supported by their sources");
+    return problems;
+  } catch (err) {
+    log.warn(`fact-check unavailable, accepting validated brief: ${String(err.message).split("\n")[0]}`);
+    return [];
+  }
 }

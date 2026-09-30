@@ -21,13 +21,17 @@ function feedFor(cat) {
   return `<?xml version="1.0"?><rss version="2.0"><channel>${items.join("")}</channel></rss>`;
 }
 
+const isFactCheck = (body) => body.messages[0].content.includes("strict fact-checker");
+const ok = (content) => new Response(JSON.stringify({ choices: [{ message: { content: typeof content === "string" ? content : JSON.stringify(content) } }] }));
+
 function setup(modelReplies) {
   const config = testConfig();
   config.sources = Object.keys(HEADLINES).map((cat) => ({ name: "BBC News", category: cat, weight: 3, url: `https://feeds.example/${cat}.xml` }));
-  config.llm = { ...config.llm, providers: [{ name: "fake", base_url: "https://llm.example/v1", api_key_env: "FAKE_KEY", models: ["m1"] }] };
+  config.llm = { ...config.llm, retry_delays_seconds: [0], providers: [{ name: "fake", base_url: "https://llm.example/v1", api_key_env: "FAKE_KEY", models: ["m1"] }] };
   const calls = [];
   const fetchImpl = async (url, opts) => {
     if (url.startsWith("https://feeds.example/")) return new Response(feedFor(url.match(/\/(\w+)\.xml$/)[1]));
+    if (isFactCheck(JSON.parse(opts.body))) return ok({ problems: [] });
     calls.push(JSON.parse(opts.body));
     const reply = modelReplies[Math.min(calls.length - 1, modelReplies.length - 1)];
     return new Response(JSON.stringify({ choices: [{ message: { content: typeof reply === "string" ? reply : JSON.stringify(reply) } }] }));
@@ -58,6 +62,7 @@ test("happy path: feeds → candidates → model → validated WhatsApp brief", 
   const wrapped = async (url, opts) => {
     if (!url.startsWith("https://llm.example")) return fetchImpl(url, opts);
     const body = JSON.parse(opts.body);
+    if (isFactCheck(body)) return ok({ problems: [] });
     calls.push(body);
     build ??= replyFor(calls, PICKS);
     return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(build(body.messages[1].content)) } }] }));
@@ -80,6 +85,7 @@ test("invalid first answer triggers exactly one correction retry", async () => {
   const wrapped = async (url, opts) => {
     if (!url.startsWith("https://llm.example")) return fetchImpl(url, opts);
     const body = JSON.parse(opts.body);
+    if (isFactCheck(body)) return ok({ problems: [] });
     calls.push(body);
     n++;
     const good = replyFor(calls, PICKS)(body.messages[1].content);
@@ -91,6 +97,58 @@ test("invalid first answer triggers exactly one correction retry", async () => {
   assert.equal(calls.length, 2);
   const correction = calls[1].messages.at(-1).content;
   assert.match(correction, /same event must appear once/);
+});
+
+/** Editor always returns PICKS; fact-checker answers from `factReplies` in order. */
+function withFactChecker(factReplies, { failFirstEditorCalls = 0 } = {}) {
+  const { config, fetchImpl } = setup([]);
+  const editorCalls = [], factCalls = [];
+  const wrapped = async (url, opts) => {
+    if (!url.startsWith("https://llm.example")) return fetchImpl(url, opts);
+    const body = JSON.parse(opts.body);
+    if (isFactCheck(body)) {
+      factCalls.push(body);
+      return ok(factReplies[Math.min(factCalls.length - 1, factReplies.length - 1)]);
+    }
+    editorCalls.push(body);
+    if (editorCalls.length <= failFirstEditorCalls) return new Response('{"error":{"message":"This model is currently experiencing high demand."}}', { status: 503 });
+    return ok(replyFor([], PICKS)(body.messages[1].content));
+  };
+  return { config, fetchImpl: wrapped, editorCalls, factCalls };
+}
+
+test("fact-check problems are sent back to the editor as a correction", async () => {
+  const t = withFactChecker([{ problems: [{ story: 1, problem: "mixes up who was wounded" }] }, { problems: [] }]);
+  const r = await generateBrief(t.config, { log: silent, history: { runs: [] }, todayKey: "2026-09-30", now: NOW, fetchImpl: t.fetchImpl, env: { FAKE_KEY: "k" } });
+  assert.equal(r.meta.attempts, 2);
+  assert.equal(t.factCalls.length, 2);
+  assert.match(t.editorCalls[1].messages.at(-1).content, /story 1: mixes up who was wounded/);
+  assert.match(t.factCalls[0].messages[1].content, /STORY 1\nHeadline: UN Security Council[\s\S]*SOURCE EXCERPTS:\n  - \[BBC\]/);
+  assert.equal(r.brief.stories.length, 6);
+});
+
+test("stories still flagged after the retry are dropped, the rest is sent", async () => {
+  const t = withFactChecker([{ problems: [{ story: 2, problem: "number not in source" }] }]);
+  const r = await generateBrief(t.config, { log: silent, history: { runs: [] }, todayKey: "2026-09-30", now: NOW, fetchImpl: t.fetchImpl, env: { FAKE_KEY: "k" } });
+  assert.equal(r.meta.droppedByFactCheck, 1);
+  assert.equal(r.brief.stories.length, 5);
+  assert.ok(!r.rendered.text.includes(HEADLINES.world[1]));
+});
+
+test("if too much is flagged, nothing is sent", async () => {
+  const all = { problems: [1, 2, 3, 4, 5, 6].map((n) => ({ story: n, problem: "unsupported" })) };
+  const t = withFactChecker([all]);
+  await assert.rejects(
+    () => generateBrief(t.config, { log: silent, history: { runs: [] }, todayKey: "2026-09-30", now: NOW, fetchImpl: t.fetchImpl, env: { FAKE_KEY: "k" } }),
+    (err) => err instanceof BriefFailure && err.stage === "validation",
+  );
+});
+
+test("a 'high demand' 503 is retried on the same model before giving up", async () => {
+  const t = withFactChecker([{ problems: [] }], { failFirstEditorCalls: 1 });
+  const r = await generateBrief(t.config, { log: silent, history: { runs: [] }, todayKey: "2026-09-30", now: NOW, fetchImpl: t.fetchImpl, env: { FAKE_KEY: "k" } });
+  assert.equal(t.editorCalls.length, 2);
+  assert.equal(r.meta.editor, "fake/m1");
 });
 
 test("two invalid answers → BriefFailure (nothing to send)", async () => {
