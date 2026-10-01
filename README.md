@@ -163,6 +163,24 @@ gh variable set MORNING_BRIEF_ENABLED --body true -R hxxtsxxh/family-morning-bri
 
 The workflow has four UTC cron lines (`15 14`, `15 15`, `15 16`, `15 17`). GitHub cron doesn't know about time zones, so together they give **three attempts every morning, around 07:15, 08:15 and 09:15 PT, in both summer and winter**. Each run checks: enabled? inside the morning window (06:45–10:00 PT)? not already sent today? Exactly one run sends per day; the rest exit in seconds. If an attempt fails *before* sending (a free AI model is busy, a validation failure), the next one retries. If a send itself errored, it does **not** retry, to avoid double posts. If every AI model is busy, a run also waits 5 minutes and tries once more on its own.
 
+### Reliable daily trigger (cron-job.org)
+
+GitHub's built-in schedule is best-effort: it can start late or be skipped when GitHub is busy (it didn't fire at all on day one). So a free external cron starts the run every morning, and GitHub's own cron stays as a backup. Both use `mode=scheduled`, which goes through the same "enabled / morning window / not already sent today" check, so they can never double-post.
+
+Setup (one time):
+
+1. **GitHub token.** Go to GitHub → Settings → Developer settings → **Fine-grained tokens** → Generate new token.
+   - Repository access: **Only select repositories → family-morning-brief**
+   - Permissions → Repository → **Actions: Read and write** (nothing else)
+   - Expiration: 1 year, and set a reminder to renew it.
+2. **cron-job.org** (free account) → Create cronjob:
+   - URL: `https://api.github.com/repos/hxxtsxxh/family-morning-brief/actions/workflows/morning-brief.yml/dispatches`
+   - Schedule: every day at **07:22**, time zone **America/Los_Angeles**
+   - Advanced → Request method **POST**, headers `Authorization: Bearer <token>`, `Accept: application/vnd.github+json`, `X-GitHub-Api-Version: 2022-11-28`, and request body `{"ref":"main","inputs":{"mode":"scheduled"}}`
+   - Save, then **Test run**. GitHub returns `204`, and a run appears in Actions. On a day that's already been sent, it exits with "already sent".
+
+The token can only start workflows in this one repo. If it leaks, revoke it on GitHub and make a new one.
+
 ## Change delivery time
 
 1. Change `send_time` in `config/brief.config.yaml`.
