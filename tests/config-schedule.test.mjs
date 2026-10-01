@@ -63,7 +63,11 @@ test("schedule gate: runs once in the morning window, in both PDT and PST", () =
   // PST (UTC-8): the 14:15 UTC cron is 06:15 local → too early; the 15:15 UTC cron is 07:15 → go
   assert.equal(scheduleDecision({ now: new Date("2026-12-01T14:15:00Z"), config, history: empty, enabled: true }).go, false);
   assert.equal(scheduleDecision({ now: new Date("2026-12-01T15:15:00Z"), config, history: empty, enabled: true }).go, true);
-  // Way late (GitHub outage) → don't send an afternoon "morning" brief
+  // Retries at ~8:15 and ~9:15 local still go if nothing was sent yet…
+  assert.equal(scheduleDecision({ now: new Date("2026-09-30T16:15:00Z"), config, history: empty, enabled: true }).go, true);
+  assert.equal(scheduleDecision({ now: new Date("2026-12-01T17:15:00Z"), config, history: empty, enabled: true }).go, true);
+  // …but the summer 17:15 UTC line (10:15 PDT) is too late, and so is an afternoon run.
+  assert.equal(scheduleDecision({ now: new Date("2026-09-30T17:15:00Z"), config, history: empty, enabled: true }).go, false);
   assert.equal(scheduleDecision({ now: new Date("2026-09-30T21:00:00Z"), config, history: empty, enabled: true }).go, false);
 });
 
@@ -82,7 +86,7 @@ test("schedule gate: never sends twice a day, and does nothing until enabled", (
 test("the workflow's cron lines match send_time + timezone (keeps the schedule honest)", () => {
   const config = loadConfig(undefined, {});
   const expected = cronLinesFor(config);
-  assert.deepEqual(expected, ["15 14 * * *", "15 15 * * *"]);
+  assert.deepEqual(expected, ["15 14 * * *", "15 15 * * *", "15 16 * * *", "15 17 * * *"]);
   const wf = YAML.parse(readFileSync(resolve(ROOT, ".github/workflows/morning-brief.yml"), "utf8"));
   const actual = wf.on.schedule.map((s) => s.cron).sort();
   assert.deepEqual(actual, expected, "run `npm run schedule:cron` and paste the lines into the workflow");

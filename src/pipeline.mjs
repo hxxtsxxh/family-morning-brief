@@ -4,7 +4,8 @@ import { normalizeItems } from "./normalize.mjs";
 import { clusterStories } from "./dedupe.mjs";
 import { selectCandidates } from "./rank.mjs";
 import { buildMessages, parseModelJson, resolveBrief, heuristicBrief } from "./compose.mjs";
-import { chatComplete } from "./llm.mjs";
+import { chatComplete, LlmUnavailableError } from "./llm.mjs";
+import { resolveStoryLinks } from "./gnews.mjs";
 import { renderBrief, orderStories } from "./format.mjs";
 import { validateBrief } from "./validate.mjs";
 import { factCheck } from "./factcheck.mjs";
@@ -17,7 +18,7 @@ export class BriefFailure extends Error {
   }
 }
 
-export async function generateBrief(config, { log, history, todayKey, now = new Date(), noLlm = false, fetchImpl = fetch, env = process.env }) {
+export async function generateBrief(config, { log, history, todayKey, now = new Date(), noLlm = false, fetchImpl = fetch, env = process.env, sleep = (ms) => new Promise((r) => setTimeout(r, ms)) }) {
   const nowMs = now.getTime();
   const meta = { date: todayKey };
 
@@ -55,11 +56,38 @@ export async function generateBrief(config, { log, history, todayKey, now = new 
 
   const recent = recentHeadlines(history, todayKey, config.history.avoid_repeat_days);
   const messages = buildMessages(candidates, config, { recent, nowMs });
+  // Free tiers have busy spells: if every model is unavailable, wait once and try again.
+  let waitedForModels = false;
+  const complete = async (msgs) => {
+    try {
+      return await chatComplete(msgs, config, { env, fetchImpl, log: log.info });
+    } catch (err) {
+      const waitMin = config.llm.unavailable_wait_minutes ?? 5;
+      if (!(err instanceof LlmUnavailableError) || waitedForModels || waitMin <= 0) throw err;
+      waitedForModels = true;
+      log.warn(`all editor models unavailable — waiting ${waitMin} min and trying once more`);
+      await sleep(waitMin * 60000);
+      return chatComplete(msgs, config, { env, fetchImpl, log: log.info });
+    }
+  };
+
+  // Accepted brief → swap Google News redirects for direct links, re-render, keep if still valid.
+  const finalize = async (brief, rendered, extraMeta) => {
+    const { tried, resolved } = await resolveStoryLinks(brief.stories, { fetchImpl, log: log.warn });
+    if (tried) {
+      log.info(`links: resolved ${resolved}/${tried} Google News links to direct publisher URLs`);
+      const reRendered = renderBrief(brief, config, now);
+      if (!validateBrief(brief, reRendered, config).length) rendered = reRendered;
+    }
+    Object.assign(meta, extraMeta);
+    return { brief, rendered, errors: [], meta, candidates };
+  };
+
   let lastErrors = [];
   for (let attempt = 1; attempt <= 2; attempt++) {
     let content;
     try {
-      const res = await chatComplete(messages, config, { env, fetchImpl, log: log.info });
+      const res = await complete(messages);
       content = res.content;
       meta.editor = `${res.provider}/${res.model}`;
     } catch (err) {
@@ -79,10 +107,7 @@ export async function generateBrief(config, { log, history, todayKey, now = new 
       if (!lastErrors.length) {
         log.info(`editor: attempt ${attempt} passed validation (${brief.stories.length} stories)`);
         const problems = await runFactCheck(brief, candidates, config, { env, fetchImpl, log });
-        if (!problems.length) {
-          meta.attempts = attempt;
-          return { brief, rendered, errors: [], meta, candidates };
-        }
+        if (!problems.length) return finalize(brief, rendered, { attempts: attempt });
         if (attempt === 2) {
           // Last chance: drop whatever the checker still flags, keep the rest if it's still a real briefing.
           const flagged = new Set(problems.map((p) => p.story - 1));
@@ -90,11 +115,7 @@ export async function generateBrief(config, { log, history, todayKey, now = new 
           rendered = renderBrief(brief, config, now);
           const errors = validateBrief(brief, rendered, config);
           log.warn(`fact-check: dropped ${flagged.size} still-unsupported stories: ${problems.map((p) => `#${p.story} ${p.problem}`).join(" | ")}`);
-          if (!errors.length) {
-            meta.attempts = attempt;
-            meta.droppedByFactCheck = flagged.size;
-            return { brief, rendered, errors: [], meta, candidates };
-          }
+          if (!errors.length) return finalize(brief, rendered, { attempts: attempt, droppedByFactCheck: flagged.size });
           lastErrors = [...problems.map((p) => `story ${p.story}: ${p.problem}`), ...errors];
           break;
         }

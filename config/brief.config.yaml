@@ -168,6 +168,7 @@ llm:
   temperature: 0.2
   timeout_seconds: 120
   retry_delays_seconds: [10, 30] # same-model retries for "high demand"/rate-limit errors
+  unavailable_wait_minutes: 5 # if EVERY model is busy, wait this long and try once more
   max_candidates: 90 # story clusters shown to the model
 
 # ── History (avoids repeating yesterday's stories) ──────────────────────────

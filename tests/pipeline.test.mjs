@@ -27,7 +27,7 @@ const ok = (content) => new Response(JSON.stringify({ choices: [{ message: { con
 function setup(modelReplies) {
   const config = testConfig();
   config.sources = Object.keys(HEADLINES).map((cat) => ({ name: "BBC News", category: cat, weight: 3, url: `https://feeds.example/${cat}.xml` }));
-  config.llm = { ...config.llm, retry_delays_seconds: [0], providers: [{ name: "fake", base_url: "https://llm.example/v1", api_key_env: "FAKE_KEY", models: ["m1"] }] };
+  config.llm = { ...config.llm, retry_delays_seconds: [0], unavailable_wait_minutes: 0, providers: [{ name: "fake", base_url: "https://llm.example/v1", api_key_env: "FAKE_KEY", models: ["m1"] }] };
   const calls = [];
   const fetchImpl = async (url, opts) => {
     if (url.startsWith("https://feeds.example/")) return new Response(feedFor(url.match(/\/(\w+)\.xml$/)[1]));
@@ -149,6 +149,40 @@ test("a 'high demand' 503 is retried on the same model before giving up", async 
   const r = await generateBrief(t.config, { log: silent, history: { runs: [] }, todayKey: "2026-09-30", now: NOW, fetchImpl: t.fetchImpl, env: { FAKE_KEY: "k" } });
   assert.equal(t.editorCalls.length, 2);
   assert.equal(r.meta.editor, "fake/m1");
+});
+
+test("if every model is busy, waits once and retries before giving up", async () => {
+  const t = withFactChecker([{ problems: [] }], { failFirstEditorCalls: 2 }); // both same-model tries fail
+  t.config.llm.unavailable_wait_minutes = 5;
+  const waits = [];
+  const r = await generateBrief(t.config, { log: silent, history: { runs: [] }, todayKey: "2026-09-30", now: NOW, fetchImpl: t.fetchImpl, env: { FAKE_KEY: "k" }, sleep: async (ms) => waits.push(ms) });
+  assert.deepEqual(waits, [300000]);
+  assert.equal(r.brief.stories.length, 6);
+});
+
+test("Google News links on the final stories are swapped for direct publisher links", async () => {
+  const { config, fetchImpl } = setup([]);
+  config.sources = config.sources.map((s, i) => (i === 0 ? { ...s, google_news: true, name: "Reuters (via Google News)" } : s));
+  const gnFeed = feedFor("world").replace(/<link>https:\/\/www\.bbc\.com\/world\/(\d)<\/link>/g, "<link>https://news.google.com/rss/articles/ART$1?oc=5</link><source url=\"https://www.reuters.com\">Reuters</source>");
+  const wrapped = async (url, opts) => {
+    if (url === "https://feeds.example/world.xml") return new Response(gnFeed);
+    if (url.startsWith("https://news.google.com/rss/articles/")) return new Response('<c-wiz data-n-a-sg="SIG" data-n-a-ts="1790000000"></c-wiz>');
+    if (url.startsWith("https://news.google.com/_/DotsSplashUi")) {
+      const id = decodeURIComponent(opts.body).match(/ART\d/)[0];
+      return new Response(`)]}'\n[["wrb.fr","Fbv4je","[\\"garturlres\\",\\"https://www.reuters.com/world/${id}\\",1]"]]`);
+    }
+    if (url.startsWith("https://llm.example")) {
+      const body = JSON.parse(opts.body);
+      if (isFactCheck(body)) return ok({ problems: [] });
+      return ok(replyFor([], PICKS)(body.messages[1].content));
+    }
+    return fetchImpl(url, opts);
+  };
+  const r = await generateBrief(config, { log: silent, history: { runs: [] }, todayKey: "2026-09-30", now: NOW, fetchImpl: wrapped, env: { FAKE_KEY: "k" } });
+  const world = r.brief.stories.filter((s) => s.section === "world");
+  assert.ok(world.every((s) => s.url.startsWith("https://www.reuters.com/world/ART")), world.map((s) => s.url).join(", "));
+  assert.ok(world.every((s) => s.allUrls.some((u) => u.startsWith("https://news.google.com/"))), "history keeps both forms");
+  assert.doesNotMatch(r.rendered.text, /news\.google\.com/);
 });
 
 test("two invalid answers → BriefFailure (nothing to send)", async () => {

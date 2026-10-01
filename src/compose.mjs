@@ -65,6 +65,7 @@ export function resolveBrief(parsed, candidates) {
       sources: [...new Set(items.map((i) => i.publisher))].slice(0, 2),
       url: preferredItem(items)?.url ?? "",
       linkSource: preferredItem(items)?.publisher ?? "",
+      allUrls: [...new Set(items.map((i) => i.url))],
     };
   });
   return { stories };

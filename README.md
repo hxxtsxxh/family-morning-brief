@@ -152,7 +152,7 @@ This sends **one** brief to `FAMILY_WHATSAPP_GROUP_ID` and records it. Running i
 gh variable set MORNING_BRIEF_ENABLED --body true -R hxxtsxxh/family-morning-brief
 ```
 
-The workflow has two UTC cron lines, `15 14 * * *` and `15 15 * * *`. That is 07:15 local in both PDT and PST, because GitHub cron doesn't know about time zones. Each run checks: enabled? inside the morning window (06:45–10:30 PT)? not already sent today? Exactly one run sends per day. If the first attempt fails *before* sending (e.g. a validation failure), the second cron an hour later retries. If a send itself errored, it does **not** retry, to avoid double posts.
+The workflow has four UTC cron lines (`15 14`, `15 15`, `15 16`, `15 17`). GitHub cron doesn't know about time zones, so together they give **three attempts every morning, around 07:15, 08:15 and 09:15 PT, in both summer and winter**. Each run checks: enabled? inside the morning window (06:45–10:00 PT)? not already sent today? Exactly one run sends per day; the rest exit in seconds. If an attempt fails *before* sending (a free AI model is busy, a validation failure), the next one retries. If a send itself errored, it does **not** retry, to avoid double posts. If every AI model is busy, a run also waits 5 minutes and tries once more on its own.
 
 ## Change delivery time
 
@@ -199,7 +199,7 @@ Each run logs: when it ran, the schedule decision, feeds reached, raw → fresh 
 
 ## Limitations
 
-- **Headline-only stories:** Google News items carry only a headline, so their summaries stay close to the headline, and their links are long Google redirect URLs. When a direct feed has the same story, its direct link is used instead.
+- **Headline-only stories:** Google News items carry only a headline, so their one-line gists stay close to the headline. Reuters and AP block automated page fetches, so their article text can't be read. Links are resolved to the real publisher URL; if resolution fails, the working Google redirect link is kept.
 - **Cross-checking** is based on how many independent reputable outlets carried the same event (shown as multiple sources), not on reading full articles.
 - **Free tiers can change.** Gemini quotas are generous for one call a day, and the Groq fallback exists for that reason.
 - **Unofficial WhatsApp client:** OpenClaw links as a WhatsApp Web device. That is widely used but not officially sanctioned by WhatsApp; posting once a day is very low risk.

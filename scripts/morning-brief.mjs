@@ -116,7 +116,7 @@ async function main() {
     const res = await sendToFamilyGroup(rendered.text, config);
     const id = res?.messageId ?? res?.result?.messageId ?? res?.id ?? "";
     log.info(`whatsapp delivery: OK${id ? ` (message id ${id})` : ""}`);
-    persist({ status: "sent", mode, stories: brief.stories.map((s) => ({ headline: s.headline, urls: [s.url] })) });
+    persist({ status: "sent", mode, stories: brief.stories.map((s) => ({ headline: s.headline, urls: [...new Set([s.url, ...(s.allUrls ?? [])])] })) });
     summary("\n✅ Delivered to the family WhatsApp group.");
     return 0;
   } catch (err) {

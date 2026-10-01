@@ -2,12 +2,15 @@ name: Family Morning Brief
 
 on:
   schedule:
-    # 07:30 America/Los_Angeles. GitHub cron is UTC-only, so there is one line per DST
-    # offset, each firing ~15 min early; the in-code gate lets exactly one run send per day.
+    # 07:30 America/Los_Angeles. GitHub cron is UTC-only, so these lines cover both DST
+    # offsets: a first try ~15 min early, then retries ~1 h and ~2 h later. The in-code gate
+    # lets exactly one run send per day (the others exit in seconds).
     # If you change send_time in config/brief.config.yaml, run `npm run schedule:cron`
     # and paste the printed lines here (npm test fails if they don't match).
     - cron: "15 14 * * *"
     - cron: "15 15 * * *"
+    - cron: "15 16 * * *"
+    - cron: "15 17 * * *"
   workflow_dispatch:
     inputs:
       mode:
@@ -33,7 +36,7 @@ env:
 jobs:
   brief:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30 # includes one 5-minute wait if every free model is busy
     env:
       FAMILY_WHATSAPP_GROUP_ID: ${{ vars.FAMILY_WHATSAPP_GROUP_ID }}
       MORNING_BRIEF_ENABLED: ${{ vars.MORNING_BRIEF_ENABLED }}
