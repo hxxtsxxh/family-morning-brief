@@ -35,7 +35,7 @@ Respect each section's maximum. Omit a section entirely rather than filling it w
 
 ## Writing rules
 - headline: short, descriptive, factual, in sentence case (max {{max_headline_chars}} characters). No clickbait, no ALL CAPS, no emoji, no trailing period.
-- summary: exactly ONE short plain-English sentence, max {{max_summary_words}} words — the gist a busy reader needs (what happened, and why it matters if the candidate says so). No second sentence, no filler, no background paragraphs.
+- summary: exactly ONE short plain-English sentence — aim for about 15 words, never more than {{max_summary_words}} — the gist a busy reader needs (what happened, and why it matters if the candidate says so). No second sentence, no filler, no background paragraphs.
 - Neutral, calm, low-drama tone. No editorializing; do not tell readers what to think.
 - Politics: describe what happened and relevant context; attribute contested claims ("the government said…", "opposition leaders argued…", "according to…"). Never endorse or rank candidates, parties, legislation or movements, and never predict election outcomes.
 - Avoid loaded words (slams, blasts, destroys, shocking, chaos, sensational, stunning, epic). Avoid WhatsApp formatting characters (* _ ~ `) in your text.

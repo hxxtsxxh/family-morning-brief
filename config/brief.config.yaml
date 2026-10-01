@@ -25,7 +25,7 @@ length:
   max_stories: 8
   max_words: 400 # counted on the message text, excluding the link list
   max_chars: 6000 # one WhatsApp message (OpenClaw's chunk limit is raised to 8000 in CI setup)
-  max_summary_words: 28 # each story = bold headline + ONE short sentence (the gist)
+  max_summary_words: 22 # each story = bold headline + ONE short sentence (the gist); the editor aims for ~15
   max_summary_sentences: 1
   max_headline_chars: 70
 
