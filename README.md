@@ -99,7 +99,16 @@ From a terminal: `gh secret set GEMINI_API_KEY -R hxxtsxxh/family-morning-brief`
 2. Open the running job and expand the step **"📱 Scan this QR…"**.
 3. On your phone go to **WhatsApp → Settings → Linked devices → Link a device** and scan the QR in the log. It refreshes every ~20 s and the step waits up to 4 minutes.
 
-The job then saves the encrypted session and lists your groups. Tip: WhatsApp recommends a separate number for bots; your personal number works too.
+The job then saves the encrypted session and lists your groups.
+
+**Recommended: a dedicated bot account** (this is how it's set up now). The briefing comes from its own "Morning Chai ☀️" contact in the group, so you receive it like everyone else:
+
+1. Get a free second number at voice.google.com.
+2. Register it in the free **WhatsApp Business** app, which runs alongside normal WhatsApp on the same phone. Set its name and photo.
+3. Add that number to the family group.
+4. Run **WhatsApp setup → `logout`**, then **`login`**, and scan the QR from **WhatsApp Business → Settings → Linked devices**.
+
+The group's JID is the same from every member's side, so `FAMILY_WHATSAPP_GROUP_ID` doesn't change.
 
 ## Find/configure the family group
 
