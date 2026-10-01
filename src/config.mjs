@@ -31,7 +31,7 @@ export function validateConfig(raw, env = process.env) {
   need(isValidTimeZone(c.timezone), `timezone "${c.timezone}" is not a valid IANA time zone`);
   need(TIME_RE.test(String(c.send_time ?? "")), `send_time must be "HH:MM" (got "${c.send_time}")`);
 
-  c.length = { min_stories: 3, max_stories: 8, max_words: 600, max_chars: 6000, max_summary_words: 45, max_headline_chars: 90, ...c.length };
+  c.length = { min_stories: 3, max_stories: 8, max_words: 400, max_chars: 6000, max_summary_words: 28, max_summary_sentences: 1, max_headline_chars: 70, ...c.length };
   for (const [k, v] of Object.entries(c.length)) need(Number.isInteger(v) && v > 0, `length.${k} must be a positive integer`);
   need(c.length.min_stories <= c.length.max_stories, "length.min_stories must be <= length.max_stories");
   // OpenClaw's WhatsApp textChunkLimit is set to 8000 (scripts/ci/openclaw-setup.sh), so this stays one message.

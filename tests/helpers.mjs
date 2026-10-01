@@ -42,7 +42,7 @@ export function sampleBrief(count = 6) {
     stories: Array.from({ length: count }, (_, i) => ({
       section: sections[i % sections.length],
       headline: topics[i % topics.length],
-      summary: "Officials announced the decision on Tuesday. It affects millions of people.",
+      summary: "Officials announced the decision on Tuesday, affecting millions of people.",
       candidateIds: [`c${i + 1}`],
       unknownIds: [],
       sources: ["Reuters", "BBC"],

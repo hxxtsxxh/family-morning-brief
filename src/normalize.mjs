@@ -22,7 +22,7 @@ export function canonicalUrl(url) {
     const u = new URL(url);
     u.hash = "";
     for (const k of [...u.searchParams.keys()]) {
-      if (/^(utm_|at_|cmp|ito|ocid|fbclid|gclid|mc_|ex_cid$|ref$|src$|CMP$)/i.test(k)) u.searchParams.delete(k);
+      if (/^(utm_|at_|cmp|ito|ocid|fbclid|gclid|mc_|ex_cid$|traffic_source$|ref$|src$|CMP$)/i.test(k)) u.searchParams.delete(k);
     }
     if (u.protocol === "http:") u.protocol = "https:";
     if (u.pathname !== "/") u.pathname = u.pathname.replace(/\/+$/, "");

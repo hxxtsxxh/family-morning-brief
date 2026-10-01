@@ -15,6 +15,7 @@ export function buildMessages(candidates, config, { recent = [], nowMs = Date.no
     max_stories: config.length.max_stories,
     max_headline_chars: config.length.max_headline_chars,
     max_summary_words: config.length.max_summary_words,
+    max_summary_sentences: config.length.max_summary_sentences,
     categories: config.categories.map((c) => `- ${c.id}: ${c.label} (max ${c.max})`).join("\n"),
     category_ids: config.categories.map((c) => c.id).join(", "),
     recent: recent.length ? recent.map((r) => `- ${r.date}: ${r.headline}`).join("\n") : "(none)",
@@ -62,23 +63,31 @@ export function resolveBrief(parsed, candidates) {
       candidateIds: ids,
       unknownIds: ids.filter((id) => !byId.has(id)),
       sources: [...new Set(items.map((i) => i.publisher))].slice(0, 2),
-      url: preferredUrl(items),
+      url: preferredItem(items)?.url ?? "",
+      linkSource: preferredItem(items)?.publisher ?? "",
     };
   });
-  return { intro: cleanText(parsed?.intro).slice(0, 120), stories };
+  return { stories };
 }
 
 /** Direct publisher links beat long Google News redirect links; otherwise most authoritative first. */
-export function preferredUrl(items) {
-  return (items.find((i) => !i.googleNews) ?? items[0])?.url ?? "";
+export function preferredItem(items) {
+  return items.find((i) => !i.googleNews) ?? items[0];
 }
 
-/** Removes WhatsApp control characters and stray URLs from model-written text. */
+/**
+ * Makes model-written text safe to embed in the Markdown message: no URLs, no formatting
+ * characters, no HTML, and nothing at the start that Markdown would read as a heading,
+ * quote or list ("# ", "> ", "- ", "1. ").
+ */
 export function cleanText(s) {
   return String(s ?? "")
     .replace(/https?:\/\/\S+/g, "")
-    .replace(/[*_~`]/g, "")
+    .replace(/<[^>]*>/g, "")
+    .replace(/[*_~`<>|\\]/g, "")
     .replace(/\s+/g, " ")
+    .trim()
+    .replace(/^(?:[#>+-]+|\d+[.)])\s+/, "")
     .trim();
 }
 
@@ -93,7 +102,7 @@ export function heuristicBrief(candidates, config) {
     const picks = candidates.filter((c) => c.categories[0] === cat.id).slice(0, Math.min(cat.max, 2));
     for (const c of picks) {
       if (stories.length >= config.length.max_stories) break;
-      const summary = firstSentences(c.items.map((i) => i.summary).find((s) => s && s.length > 30) ?? "", config.length.max_summary_words);
+      const summary = firstSentences(c.items.map((i) => i.summary).find((s) => s && s.length > 30) ?? "", config.length.max_summary_words, config.length.max_summary_sentences);
       stories.push({
         section: cat.id,
         headline: cleanText(c.lead.title).slice(0, config.length.max_headline_chars),
@@ -101,17 +110,18 @@ export function heuristicBrief(candidates, config) {
         candidateIds: [c.id],
         unknownIds: [],
         sources: c.publishers.slice(0, 2),
-        url: preferredUrl(c.items),
+        url: preferredItem(c.items)?.url ?? "",
+        linkSource: preferredItem(c.items)?.publisher ?? "",
       });
     }
   }
-  return { intro: "", stories };
+  return { stories };
 }
 
-function firstSentences(text, maxWords) {
+function firstSentences(text, maxWords, maxSentences = 1) {
   const sentences = cleanText(text).match(/[^.!?]+[.!?]+(\s|$)/g) ?? [cleanText(text)];
   let out = "";
-  for (const s of sentences.slice(0, 2)) {
+  for (const s of sentences.slice(0, maxSentences)) {
     if ((out + s).split(/\s+/).length > maxWords) break;
     out += s;
   }

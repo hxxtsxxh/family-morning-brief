@@ -71,8 +71,8 @@ test("happy path: feeds → candidates → model → validated WhatsApp brief", 
   assert.equal(r.brief.stories.length, 6);
   assert.equal(r.meta.attempts, 1);
   assert.equal(r.meta.candidates, 11);
-  assert.match(r.rendered.text, /\*1\. UN Security Council approves/);
-  assert.match(r.rendered.text, /🏏 \*Sports\*\n\*6\. India beat Australia/);
+  assert.match(r.rendered.text, /🌎 \*\*Top Stories\*\*\n• \*\*UN Security Council approves/);
+  assert.match(r.rendered.text, /🏏 \*\*Sports\*\*\n• \*\*India beat Australia/);
   assert.ok(r.rendered.links.every((u) => u.startsWith("https://www.bbc.com/")));
   // Key never leaks into the prompt; system prompt carries editorial rules.
   assert.doesNotMatch(JSON.stringify(calls[0]), /"k"/);

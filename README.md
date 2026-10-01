@@ -4,23 +4,28 @@ Every morning at about **7:30 AM Pacific**, a short, calm, well-sourced news bri
 
 Everything runs on **free** services: GitHub Actions (private repo), public RSS feeds, Google's free Gemini API tier, and OpenClaw's WhatsApp channel. There is no server to maintain and no credit card anywhere.
 
+What the family sees in WhatsApp:
+
 ```
 ☀️ *Morning Chai*
-Wednesday, September 30
-_Good morning, happy Wednesday_
+_Wednesday, September 30_
 
 🌎 *Top Stories*
-*1. UN approves ceasefire monitoring mission*
-The Security Council voted to send monitors… 
-_Source: Reuters, BBC_
+• *UN approves ceasefire monitoring mission*
+The Security Council voted to send monitors after a week of talks. _Reuters, BBC_
 
 🇮🇳 *India*
-*2. RBI holds repo rate, raises growth forecast*
-…
-🔗 *Links*
-1. https://…
+• *RBI holds repo rate, raises growth forecast*
+The central bank kept rates at 5.5% and now expects 7% growth. _The Hindu_
+
+🔗 *Read more*
+• Reuters: https://…
+• The Hindu: https://…
+
 Have a great day ❤️
 ```
+
+Each story is one bold headline and **one short sentence**, with a blank line between stories, so it reads in about two minutes.
 
 ---
 
@@ -29,8 +34,8 @@ Have a great day ❤️
 1. Pulls the last ~24 h of headlines from ~30 reputable free feeds (BBC, NPR, The Hindu, Indian Express, Ars Technica, ESPNcricinfo, NASA, and more). It also uses Google News searches restricted to Reuters/AP and other trusted outlets.
 2. Cleans the headlines and drops stale items, opinion pieces, quizzes and untrusted publishers.
 3. **Deduplicates**, so one event reported by many publishers becomes one cluster, and ranks clusters by coverage, source quality, freshness and family interests.
-4. Asks a free editor model (Gemini) to pick the 6–8 stories that matter and write neutral 1–2 sentence summaries. It follows strict editorial rules (`prompts/editor.md`). The model can only cite candidate IDs, so **all links and source names come from the real feeds and are never written by the model**.
-5. **Validates** the result before sending: story count, section limits, length, a source and valid https link on every story, no duplicates, not blank. If validation fails, the model gets one correction retry. If it fails again, **nothing is sent** and the failure is logged.
+4. Asks a free editor model (Gemini) to pick the 6–8 stories that matter and write a neutral one-sentence gist for each. It follows strict editorial rules (`prompts/editor.md`). The model can only cite candidate IDs, so **all links and source names come from the real feeds and are never written by the model**.
+5. **Validates and fact-checks** the result before sending. Validation covers story count, section limits, length, a source and valid https link on every story, no duplicates, no hype words, and not blank. A second model call checks every gist against its source excerpts. If validation fails, the model gets one correction retry. If it fails again, **nothing is sent** and the failure is logged.
 6. Sends one WhatsApp message to the configured group through OpenClaw.
 
 ## Architecture
@@ -47,7 +52,8 @@ scripts/morning-brief.mjs
    ├─ src/llm.mjs        OpenAI-compatible client (Gemini free → Groq free fallback)
    ├─ src/compose.mjs    prompt + JSON parsing; attaches real sources/links
    ├─ src/validate.mjs   the guardrail (retry once, else don't send)
-   ├─ src/format.mjs     WhatsApp formatting
+   ├─ src/factcheck.mjs  second model call: every gist checked against its sources
+   ├─ src/format.mjs     message layout (Markdown → OpenClaw converts to WhatsApp)
    └─ src/deliver.mjs    `openclaw message send --channel whatsapp --target <group JID>`
                                ▲
           OpenClaw gateway (started for the job; WhatsApp session restored
@@ -113,10 +119,10 @@ Edit **`config/brief.config.yaml`**, the single place for:
 - `boost_keywords` / `exclude_patterns`: pre-ranking nudges and hard filters
 - `categories`: sections, emoji, order and max stories per section
 - `length`: story count, word and character limits
-- `links`: `bottom` (numbered list) or `inline`
+- `links`: `bottom` ("Read more" list) or `inline`
 - `sources` / `trusted_publishers`: feeds and allowed Google News publishers
 
-Run `npm test` after editing (it validates the config), then commit and push. The editorial rules themselves live in `prompts/editor.md`.
+Run `npm test` after editing (it validates the config), then commit and push. The editorial rules live in `prompts/editor.md`, and the layout in `src/format.mjs`. It's written as Markdown because OpenClaw converts Markdown to WhatsApp formatting: `**bold**` becomes bold, `_italic_` stays italic. A WhatsApp-style `*x*` would arrive as italics.
 
 ## Run a dry test
 

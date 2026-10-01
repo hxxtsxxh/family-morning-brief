@@ -5,27 +5,39 @@ import { validateBrief, sentenceCount } from "../src/validate.mjs";
 import { resolveBrief, parseModelJson, cleanText } from "../src/compose.mjs";
 import { testConfig, sampleBrief, NOW } from "./helpers.mjs";
 
-test("renders a WhatsApp-friendly brief with sections, numbering, sources and bottom links", () => {
+test("renders clean Markdown: bold headlines, one-line gists, blank line between stories, links at the bottom", () => {
   const config = testConfig();
   const { text, links } = renderBrief(sampleBrief(6), config, NOW);
-  const lines = text.split("\n");
-  assert.equal(lines[0], "☀️ *Morning Chai*");
-  assert.equal(lines[1], "Wednesday, September 30");
-  assert.match(text, /🌎 \*Top Stories\*\n\*1\. Parliament passes/);
-  assert.match(text, /🇮🇳 \*India\*/);
-  assert.match(text, /_Source: Reuters, BBC_/);
-  assert.match(text, /🔗 \*Links\*\n1\. https:\/\/www\.example\.org\/news\/1/);
+  assert.ok(text.startsWith("☀️ **Morning Chai**\n_Wednesday, September 30_\n\n🌎 **Top Stories**\n• **Parliament passes"));
+  assert.match(text, /• \*\*Parliament passes national budget with new rail spending\*\*\nOfficials announced the decision on Tuesday, affecting millions of people\. _Reuters, BBC_\n\n• \*\*Cyclone/);
+  assert.match(text, /\n\n🇮🇳 \*\*India\*\*\n• \*\*/);
+  assert.match(text, /🔗 \*\*Read more\*\*\n• Reuters: https:\/\/www\.example\.org\/news\/1\n/);
   assert.equal(links.length, 6);
-  assert.ok(text.trimEnd().endsWith("Have a great day ❤️"));
-  // Section headers appear once each, in configured order.
-  const order = ["Top Stories", "India", "United States", "Tech & Business", "Sports"].map((l) => text.indexOf(`*${l}*`));
+  assert.ok(text.endsWith("\n\nHave a great day ❤️"));
+  assert.doesNotMatch(text, /(^|[^*])\*[^*\s][^*]*\*(?!\*)/m, "no single-asterisk WhatsApp markers (OpenClaw would render them as italics)");
+  assert.doesNotMatch(text, /\n{3,}/, "never more than one blank line");
+  const order = ["Top Stories", "India", "United States", "Tech & Business", "Sports"].map((l) => text.indexOf(`**${l}**`));
   assert.deepEqual([...order].sort((a, b) => a - b), order);
+});
+
+test("link list labels each link with the outlet it actually points to", () => {
+  const brief = sampleBrief(3);
+  brief.stories[0].linkSource = "BBC";
+  const { text } = renderBrief(brief, testConfig(), NOW);
+  assert.match(text, /🔗 \*\*Read more\*\*\n• BBC: https:\/\/www\.example\.org\/news\/1\n• Reuters: /);
+});
+
+test("underscores and asterisks in links are escaped so Markdown can't mangle them", () => {
+  const brief = sampleBrief(3);
+  brief.stories[0].url = "https://news.google.com/rss/articles/CBMi_abc_-x*y?oc=5";
+  const { text } = renderBrief(brief, testConfig(), NOW);
+  assert.ok(text.includes("• Reuters: https://news.google.com/rss/articles/CBMi\\_abc\\_-x\\*y?oc=5"));
 });
 
 test("inline link mode puts each link under its story and omits the list", () => {
   const { text } = renderBrief(sampleBrief(3), testConfig({ links: "inline" }), NOW);
-  assert.match(text, /_Source: Reuters, BBC_\n🔗 https:\/\/www\.example\.org\/news\/1/);
-  assert.doesNotMatch(text, /\*Links\*/);
+  assert.match(text, /_Reuters, BBC_\n🔗 https:\/\/www\.example\.org\/news\/1/);
+  assert.doesNotMatch(text, /Read more/);
 });
 
 test("a valid brief passes validation", () => {
@@ -93,13 +105,13 @@ test("over-long briefings fail on words and characters", () => {
   assert.ok(errors.some((e) => /characters; max is 500/.test(e)));
 });
 
-test("summaries longer than two sentences fail; abbreviations don't count", () => {
-  assert.equal(sentenceCount("The U.S. economy grew 3.5% last quarter. Officials were pleased."), 2);
+test("summaries must be one sentence; abbreviations and decimals don't count", () => {
+  assert.equal(sentenceCount("The U.S. economy grew 3.5% last quarter, officials said."), 1);
   assert.equal(sentenceCount("One. Two. Three."), 3);
   const config = testConfig();
   const brief = sampleBrief(3);
-  brief.stories[0].summary = "One thing happened. Then another. And a third.";
-  assert.ok(validateBrief(brief, null, config).includes("story 1: summary must be 1–2 sentences"));
+  brief.stories[0].summary = "One thing happened. Then another.";
+  assert.ok(validateBrief(brief, null, config).includes("story 1: summary must be ONE sentence"));
 });
 
 test("model JSON is parsed from fenced output and resolved against candidates", () => {
@@ -119,11 +131,16 @@ test("model JSON is parsed from fenced output and resolved against candidates", 
   assert.equal(s.summary, "It happened. See");
   assert.deepEqual(s.unknownIds, ["c9"]);
   assert.equal(s.url, "https://www.bbc.com/news/a", "direct link preferred over Google News redirect");
+  assert.equal(s.linkSource, "BBC", "link label names the outlet whose link is used");
   assert.deepEqual(s.sources, ["BBC", "Reuters"], "equal weight → direct-link publisher listed first");
 });
 
-test("cleanText strips WhatsApp formatting characters and URLs", () => {
+test("cleanText strips formatting characters, URLs, HTML and leading Markdown block markers", () => {
   assert.equal(cleanText("  _Hello_ *world* ~x~ `y` https://a.b/c  "), "Hello world x y");
+  assert.equal(cleanText("# Breaking: <u>news</u>"), "Breaking: news");
+  assert.equal(cleanText("> quoted"), "quoted");
+  assert.equal(cleanText("1. Listed item"), "Listed item");
+  assert.equal(cleanText("- dashed"), "dashed");
   assert.equal(wordCount("☀️ *Morning Chai*\n• one two"), 4);
 });
 

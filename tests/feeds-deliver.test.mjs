@@ -79,6 +79,7 @@ test("one failing feed does not break retrieval", async () => {
 
 test("helpers: canonical URLs, titles, publishers", () => {
   assert.equal(canonicalUrl("http://www.bbc.com/news/x/?utm_medium=rss&id=4#top"), "https://www.bbc.com/news/x?id=4");
+  assert.equal(canonicalUrl("https://www.aljazeera.com/news/a?traffic_source=rss"), "https://www.aljazeera.com/news/a");
   assert.equal(cleanTitle("Stocks rally - The Economic Times", "The Economic Times"), "Stocks rally");
   const trusted = ["ESPN", "ESPNcricinfo", "ABC News", "CNN", "BBC", "Associated Press"];
   assert.equal(canonicalPublisher("ESPNcricinfo", trusted), "ESPNcricinfo");

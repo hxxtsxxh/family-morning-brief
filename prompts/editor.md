@@ -35,19 +35,19 @@ Respect each section's maximum. Omit a section entirely rather than filling it w
 
 ## Writing rules
 - headline: short, descriptive, factual, in sentence case (max {{max_headline_chars}} characters). No clickbait, no ALL CAPS, no emoji, no trailing period.
-- summary: 1–2 plain-English sentences, max {{max_summary_words}} words. What happened + why it matters (context), if the candidate supports it.
+- summary: exactly ONE short plain-English sentence, max {{max_summary_words}} words — the gist a busy reader needs (what happened, and why it matters if the candidate says so). No second sentence, no filler, no background paragraphs.
 - Neutral, calm, low-drama tone. No editorializing; do not tell readers what to think.
 - Politics: describe what happened and relevant context; attribute contested claims ("the government said…", "opposition leaders argued…", "according to…"). Never endorse or rank candidates, parties, legislation or movements, and never predict election outcomes.
 - Avoid loaded words (slams, blasts, destroys, shocking, chaos, sensational, stunning, epic). Avoid WhatsApp formatting characters (* _ ~ `) in your text.
-- intro: optional single friendly line (max 14 words) for the top of the message — warm but not cheesy, no news in it, e.g. mention the day. Use "" if nothing natural comes to mind.
 
 ## Recent briefings (avoid repeats)
 {{recent}}
 
 ## Output
+The family reads this on their phones in under two minutes, so short and scannable beats complete.
+
 Return ONLY a JSON object, no prose, in exactly this shape:
 {
-  "intro": "string (may be empty)",
   "stories": [
     {
       "section": "one of: {{category_ids}}",

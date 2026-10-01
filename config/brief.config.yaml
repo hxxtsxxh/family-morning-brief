@@ -3,7 +3,7 @@
 # This is the ONE file to edit for schedule, length, interests and sources.
 # After editing, run `npm test` (it validates this file) and push.
 
-title: "☀️ *Morning Chai*"
+title: "☀️ **Morning Chai**" # Markdown: OpenClaw converts **bold** to WhatsApp bold
 sign_off: "Have a great day ❤️"
 
 # ── Schedule ────────────────────────────────────────────────────────────────
@@ -23,10 +23,11 @@ whatsapp:
 length:
   min_stories: 3 # fewer than this = no briefing today (better than filler)
   max_stories: 8
-  max_words: 600 # counted on the message text, excluding the link list
+  max_words: 400 # counted on the message text, excluding the link list
   max_chars: 6000 # one WhatsApp message (OpenClaw's chunk limit is raised to 8000 in CI setup)
-  max_summary_words: 45
-  max_headline_chars: 90
+  max_summary_words: 28 # each story = bold headline + ONE short sentence (the gist)
+  max_summary_sentences: 1
+  max_headline_chars: 70
 
 links: bottom # "bottom" = numbered link list at the end, "inline" = link under each story
 

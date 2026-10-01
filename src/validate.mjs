@@ -27,7 +27,7 @@ export function validateBrief(brief, rendered, config) {
     if (s.headline.length > L.max_headline_chars) errors.push(`story ${n}: headline longer than ${L.max_headline_chars} characters`);
     if (!s.summary) errors.push(`story ${n}: empty summary`);
     if (wordCount(s.summary) > L.max_summary_words) errors.push(`story ${n}: summary has ${wordCount(s.summary)} words; max is ${L.max_summary_words}`);
-    if (sentenceCount(s.summary) > 2) errors.push(`story ${n}: summary must be 1–2 sentences`);
+    if (sentenceCount(s.summary) > L.max_summary_sentences) errors.push(`story ${n}: summary must be ${L.max_summary_sentences === 1 ? "ONE sentence" : `at most ${L.max_summary_sentences} sentences`}`);
     const loaded = `${s.headline} ${s.summary}`.match(LOADED);
     if (loaded) errors.push(`story ${n}: uses the loaded word "${loaded[0]}" — use neutral wording`);
     if (!s.candidateIds.length) errors.push(`story ${n}: cites no candidate ids`);
