@@ -14,9 +14,9 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "dry-run = generate and show only · preflight = full send path incl. WhatsApp, but OpenClaw delivers nothing · send = post ONE brief to the family group now"
+        description: "dry-run = generate and show only · preflight = full send path incl. WhatsApp, but OpenClaw delivers nothing · send = post ONE brief to the family group now · scheduled = what the daily trigger uses (sends only if enabled, in the morning window, and not already sent today)"
         type: choice
-        options: [dry-run, preflight, send]
+        options: [dry-run, preflight, send, scheduled]
         default: dry-run
       force:
         description: "Send even if today's brief already went out"
@@ -59,15 +59,18 @@ jobs:
         id: state
         run: scripts/ci/state.sh restore
 
+      # GitHub's own cron can be late or skipped, so an external free cron (cron-job.org) also
+      # starts this workflow every morning with mode=scheduled. Both go through the same gate,
+      # so they can never double-post.
       - name: Schedule gate
         id: gate
-        if: github.event_name == 'schedule'
+        if: github.event_name == 'schedule' || inputs.mode == 'scheduled'
         run: node scripts/morning-brief.mjs --check-schedule
 
       - name: Plan
         id: plan
         run: |
-          if [ "${{ github.event_name }}" = "schedule" ]; then
+          if [ "${{ github.event_name }}" = "schedule" ] || [ "${{ inputs.mode }}" = "scheduled" ]; then
             echo "run=${{ steps.gate.outputs.go }}" >> "$GITHUB_OUTPUT"
             echo "send=true" >> "$GITHUB_OUTPUT"
             echo "flags=--scheduled" >> "$GITHUB_OUTPUT"
